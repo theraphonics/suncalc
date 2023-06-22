@@ -1,5 +1,8 @@
 (defpackage :cl-suncalc
-  (:use :cl))
+  (:use #:common-lisp)
+  (:import-from :local-time
+                #:encode-universal-time
+                #:now))
 
 (in-package :cl-suncalc)
 
@@ -27,14 +30,17 @@ but since they are available in the CLOS standard i have not.
 ; Helper functions. JavaScript uses unix epoch while Lisp does whatever it wants
 ; so these are to standardize the dates
 
+(defconstant +suncalc-epoch+ (encode-universal-time 0 0 0 1 1 1970 0))
+
 (defun to-julian (date)
-  (print date))
+  (/ (- (local-time:timestamp-to-universal (local-time:now)) +suncalc-epoch+)
+    (- +day-ms+ (+ 0.5 +j1970+))))
 
 (defun from-julian (j)
   (print j))
 
 (defun to-days (date)
-  (print date))
+  `(- (to-julian ,date) +j2000+))
 
 ; to julian
 ;from julian
@@ -47,13 +53,16 @@ but since they are available in the CLOS standard i have not.
     (* (tan b) (sin +e+))) (cos l)))
 
 (defun declination (l b)
-  (asin (+ (* (sin b) (cos +e+)) (* (cos b) (sin +e+) (sin l)))))
+  (asin (+ (* (sin b) (cos +e+))
+    (* (cos b) (sin +e+) (sin l)))))
 
 (defun azimuth (h phi dec)
-  (atan (sin h) (- (* (cos h) (sin phi)) (* (tan dec) (cos phi)))))
+  (atan (sin h) (- (* (cos h)
+    (sin phi)) (* (tan dec) (cos phi)))))
 
 (defun altitude (h phi dec)
-  (asin (+ (* (sin phi) (sin dec)) (* (cos phi) (cos dec) (cos h)))))
+  (asin (+ (* (sin phi) (sin dec))
+    (* (cos phi) (cos dec) (cos h)))))
 
 (defun sidereal-time (d lw)
   (- (* +rad+ (+ 280.16 (* 360.9856235 d))) lw))
@@ -73,19 +82,33 @@ but since they are available in the CLOS standard i have not.
         (p (* +rad+ 102.9372)))
         (+ (+ m c) (+ p pi))))
 
+(defstruct coordinates
+  right-ascension
+  declination
+  distance
+  )
+
 (defun sun-coords (d)
   (let* ((m (solar-mean-anomaly d))
         (l (ecliptic-longitude m)))
-        (list (declination l 0) (right-ascension l 0))))
+        (make-coordinates :right-ascension (right-ascension l 0)
+                          :declination (declination l 0))))
 
 (defvar *sun-calc* (make-hash-table))
 
+(defstruct sun-position
+  azimuth
+  altitude)
+
 (defun get-position (date lat lng)
-  (let* ((lw (* +rad+ (* -1 lng)))
-        (phi (* +rad+ lat))
-        (d (to-days date))
+  `(let* ((lw (* +rad+ (* -1 ,lng)))
+        (phi (* +rad+ ,lat))
+        (d (to-days ,date))
+
         (c (sun-coords d))
-        (h (- (sidereal-time d lw) (car c))))))
+        (h (- (sidereal-time d lw) (coordinates-right-ascension c)))
+        (make-sun-position :azimuth (azimuth h phi (declination c))
+                           :altitude (altitude h phi (declination c))))))
 
 ; sun times configuration (angle, morning name, evening name)
 (defvar *times*
@@ -126,32 +149,53 @@ but since they are available in the CLOS standard i have not.
 ; calculates sun times for a given date, latitude/longitude, and, optionally,
 ; the observer height (in meters) relative to the horizon
 
-(defun get-times (date lat lng &optional (height 0))
+(defun get-times (date lat lng &optional (height 0)))
+
+; moon calculations, based on http://aa.quae.nl/en/reken/hemelpositie.html formulas
+(defun moon-coords (d)
+  `(let* ((l (* +rad+ (+ 218.316 (* 13.176396 ,d)))) ; ecliptic longitude
+          (m (* +rad+ (+ 134.963 (* 13.064993 ,d)))) ; mean anomaly
+          (f (* +rad+ (+ 93.272  (* 13.229350 ,d))))
+
+          (l (+ l (* +rad+ 6.289 (sin m))))
+          (b (* +rad+ 5.127 (sin f)))
+          (dt (- 385001 (* 20905 (cos m))))
+          (make-coordinates :right-ascension (right-ascension l b)
+                            :declination (declination l b)
+                            :distance dt))))
+
+(defstruct moon-position
+  azimuth
+  altitude
+  distance
+  parallactic-angle)
+
+(defun get-moon-position (date lat lng)
   `(let* ((lw (* +rad+ (* -1 ,lng)))
-         (phi (* +rad+ ,lat))
-         (dh (observer-angle ,height))
+          (phi (* +rad+ ,lat))
+          (d (to-days ,date))
 
-         (d (to-days ,date))
-         (n (julian-cycle d lw))
-         (ds (approx-transit 0 lw n))
+          (c (moon-coords d))
+          (h (- (side-realtime d lw) (declination c)))
 
-         (m (solar-mean-anomaly ds))
-         (l (ecliptic-longitude m))
-         (dec (declination l 0))
+          (pa (atan ((sin h) (- (* (tan phi) (cos (declination c))) (* (sin (declination c)) (cos h))))))
 
-         (j-noon (solar-transit-j ds m l))
+          (rh (+ astro-refraction h)))
 
-         (result
-           (let* ((solar-noon (from-julian j-noon))
-                  (nadir (from-julian (- j-noon 0.5))))))
-         (loop for i from 0 below (length times)
-              do
-              (progn
-                (let* ((time (aref times i)))
-                       (h0 (* (+ (aref times 0)) rad))
+          (make-moon-position :azimuth (azimuth h phi (declination c))
+                              :altitude h
+                              :distance (distance c)
+                              :parallactic-angle pa)))
 
-                       (j-set (get-set-j h0 lw phi dec n m l))
-                       (j-rise (- j-noon (- j-set j-noon))))
+; calculations for illumination parameters of the moon,
+; based on http://idlastro.gsfc.nasa.gov/ftp/pro/astro/mphase.pro formulas and
+; Chapter 48 of "Astronomical Algorithms" 2nd edition by Jean Meeus (Willmann-Bell, Richmond) 1998.
 
-                       ((aref result (aref time 1)) (from-julian j-rise))
-                       ((aref result (aref time 2)) (fromJulian Jset)))))))
+(defstruct moon-illumination
+  fraction
+  phase
+  angle)
+
+(defun get-moon-illumination (date)
+  `(let* ((d (to-days ,date)))
+          (s (sun-coords d))))

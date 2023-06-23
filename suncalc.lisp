@@ -33,17 +33,14 @@ but since they are available in the CLOS standard i have not.
 (defconstant +suncalc-epoch+ (encode-universal-time 0 0 0 1 1 1970 0))
 
 (defun to-julian (date)
-  (/ (- (local-time:timestamp-to-universal (local-time:now)) +suncalc-epoch+)
+  `(/ (- (local-time:timestamp-to-universal ,date) +suncalc-epoch+)
     (- +day-ms+ (+ 0.5 +j1970+))))
 
 (defun from-julian (j)
-  (print j))
+  `(local-time:timestamp-to-universal (* (- (+ ,j 0.5) +j1970+) +day-ms+)))
 
 (defun to-days (date)
   `(- (to-julian ,date) +j2000+))
-
-; to julian
-;from julian
 
 ; general calculations for position
 (defconstant +e+ (* +rad+ 23.4397))
@@ -82,17 +79,15 @@ but since they are available in the CLOS standard i have not.
         (p (* +rad+ 102.9372)))
         (+ (+ m c) (+ p pi))))
 
-(defstruct coordinates
+(defstruct sun-coordinates
   right-ascension
-  declination
-  distance
-  )
+  declination)
 
 (defun sun-coords (d)
   (let* ((m (solar-mean-anomaly d))
         (l (ecliptic-longitude m)))
-        (make-coordinates :right-ascension (right-ascension l 0)
-                          :declination (declination l 0))))
+        (make-sun-coordinates :right-ascension (right-ascension l 0)
+                              :declination (declination l 0))))
 
 (defvar *sun-calc* (make-hash-table))
 
@@ -149,9 +144,31 @@ but since they are available in the CLOS standard i have not.
 ; calculates sun times for a given date, latitude/longitude, and, optionally,
 ; the observer height (in meters) relative to the horizon
 
-(defun get-times (date lat lng &optional (height 0)))
+(defun get-times (date lat lng &optional (height 0))
+  `(let* ((lw (* +rad+ (* -1 ,lng))))
+          (phi (* rad lat))
+
+          (dh (observer-angle ,height))
+
+          (d (to-days ,date))
+          (n (julian-cycle ,d ,lw))
+          (ds (approx-transit 0 ,lw n))
+
+          (m (solar-mean-anomaly ds))
+          (l (ecliptic-longitude m))
+          (dec (declination l 0))
+
+          (jnoon (solar-transit-j ds m l))
+
+;;;;;;;;;;FINISH HERE!!!;;;;;;;;;;
+          ))
 
 ; moon calculations, based on http://aa.quae.nl/en/reken/hemelpositie.html formulas
+(defstruct moon-coordinates
+  right-ascension
+  declination
+  distance)
+
 (defun moon-coords (d)
   `(let* ((l (* +rad+ (+ 218.316 (* 13.176396 ,d)))) ; ecliptic longitude
           (m (* +rad+ (+ 134.963 (* 13.064993 ,d)))) ; mean anomaly
@@ -160,9 +177,9 @@ but since they are available in the CLOS standard i have not.
           (l (+ l (* +rad+ 6.289 (sin m))))
           (b (* +rad+ 5.127 (sin f)))
           (dt (- 385001 (* 20905 (cos m))))
-          (make-coordinates :right-ascension (right-ascension l b)
-                            :declination (declination l b)
-                            :distance dt))))
+          (make-moon-coordinates :right-ascension (right-ascension l b)
+                                 :declination (declination l b)
+                                 :distance dt))))
 
 (defstruct moon-position
   azimuth
@@ -196,6 +213,25 @@ but since they are available in the CLOS standard i have not.
   phase
   angle)
 
-(defun get-moon-illumination (date)
+(defun get-moon-illumination (&optional (date (local-time:now)))
   `(let* ((d (to-days ,date)))
-          (s (sun-coords d))))
+          (s (sun-coords d))
+          (m (moon-coords d))
+
+          (sdist 149598000)
+
+          (phi (acos (+ (* (sin (declanation s)) (sin (declanation m)))
+            (* (cos (declination s)) (cos (declination m)) (cos (- (right-ascension s) (right-ascension m)))))))
+          (inc (atan (* sdist (sin phi)) (- (distance m) (* sdist (cos phi)))))
+          (angle (atan (* (cos (declination s)) (sin (- (right-ascension s) (right-ascension m))))
+            (- (* (sin (declination s) (declination m))) (* (cos (declination s)) (sin (declination m) (cos (- (right-ascension s) (right-ascension m))))))))
+
+          (make-moon-illumination :fraction (/ (+ 1 (cos inc)) 2)
+                                  :phase (+ 0.5 (/ (* 0.5 inc ((if (< angle 0) -1 1))) pi))
+                                  :angle angle)))
+
+
+(defun hours-later (date h)
+  `(local-time:timestamp-to-universal (+ ,date (/ (* ,h +day-ms+) 24))))
+
+(defun get-moon-times (date lat lng in-utc))

@@ -81,20 +81,20 @@ but since they are available in the CLOS standard i have not.
         (+ (+ m c) (+ p pi))))
 
 (defstruct sun-coordinates
-  ra
-  dec)
+  right-ascension
+  declination)
 
 (defun sun-coords (d)
   (let* ((m (solar-mean-anomaly d))
         (l (ecliptic-longitude m)))
-        (make-sun-coordinates :ra (right-ascension l 0)
-                              :dec (declination l 0))))
+        (make-sun-coordinates :right-ascension (right-ascension l 0)
+                              :declination (declination l 0))))
 
 (defvar *sun-calc* (make-hash-table))
 
 (defstruct sun-position
-  azi
-  alt)
+  azimuth
+  altitude)
 
 (defun get-position (date lat lng)
   `(let* ((lw (* +rad+ (* -1 ,lng)))
@@ -103,8 +103,8 @@ but since they are available in the CLOS standard i have not.
 
         (c (sun-coords d))
         (h (- (sidereal-time d lw) (coordinates-right-ascension c)))
-        (make-sun-position :azi (azimuth h phi (dec c))
-                           :alt (altitude h phi (dec c))))))
+        (make-sun-position :azimuth (azimuth h phi (declination c))
+                           :altitude (altitude h phi (declination c))))))
 
 ; sun times configuration (angle, morning name, evening name)
 (defvar *times*
@@ -166,9 +166,9 @@ but since they are available in the CLOS standard i have not.
 
 ; moon calculations, based on http://aa.quae.nl/en/reken/hemelpositie.html formulas
 (defstruct moon-coordinates
-  ra
-  dec
-  dist)
+  right-ascension
+  declination
+  distance)
 
 (defun moon-coords (d)
   `(let* ((l (* +rad+ (+ 218.316 (* 13.176396 ,d)))) ; ecliptic longitude
@@ -178,15 +178,15 @@ but since they are available in the CLOS standard i have not.
           (l (+ l (* +rad+ 6.289 (sin m))))
           (b (* +rad+ 5.127 (sin f)))
           (dt (- 385001 (* 20905 (cos m))))
-          (make-moon-coordinates :ra (right-ascension l b)
-                                 :dec (declination l b)
-                                 :dist dt))))
+          (make-moon-coordinates :right-ascension (right-ascension l b)
+                                 :declination (declination l b)
+                                 :distance dt))))
 
 (defstruct moon-position
-  azi
-  alt
-  dist
-  par-ang)
+  azimuth
+  altitude
+  distance
+  parallactic-angle)
 
 (defun get-moon-position (date lat lng)
   `(let* ((lw (* +rad+ (* -1 ,lng)))
@@ -194,16 +194,16 @@ but since they are available in the CLOS standard i have not.
           (d (to-days ,date))
 
           (c (moon-coords d))
-          (h (- (side-realtime d lw) (dec c)))
+          (h (- (side-realtime d lw) (declination c)))
 
-          (pa (atan ((sin h) (- (* (tan phi) (cos (dec c))) (* (sin (dec c)) (cos h))))))
+          (pa (atan ((sin h) (- (* (tan phi) (cos (declination c))) (* (sin (declination c)) (cos h))))))
 
           (rh (+ astro-refraction h)))
 
-          (make-moon-position :azi (azimuth h phi (dec c))
-                              :alt h
-                              :dist (dist c)
-                              :par-ang pa)))
+          (make-moon-position :azimuth (azimuth h phi (declination c))
+                              :altitude h
+                              :distance (distance c)
+                              :parallactic-angle pa)))
 
 ; calculations for illumination parameters of the moon,
 ; based on http://idlastro.gsfc.nasa.gov/ftp/pro/astro/mphase.pro formulas and
@@ -221,11 +221,11 @@ but since they are available in the CLOS standard i have not.
 
           (sdist 149598000)
 
-          (phi (acos (+ (* (sin (dec s)) (sin (dec m)))
-            (* (cos (dec s)) (cos (dec m)) (cos (- (ra s) (ra m)))))))
+          (phi (acos (+ (* (sin (declanation s)) (sin (declanation m)))
+            (* (cos (declination s)) (cos (declination m)) (cos (- (right-ascension s) (right-ascension m)))))))
           (inc (atan (* sdist (sin phi)) (- (distance m) (* sdist (cos phi)))))
-          (angle (atan (* (cos (dec s)) (sin (- (ra s) (ra m))))
-            (- (* (sin (dec s) (dec m))) (* (cos (dec s)) (sin (dec m) (cos (- (ra s) (ra m))))))))
+          (angle (atan (* (cos (declination s)) (sin (- (right-ascension s) (right-ascension m))))
+            (- (* (sin (declination s) (declination m))) (* (cos (declination s)) (sin (declination m) (cos (- (right-ascension s) (right-ascension m))))))))
 
           (make-moon-illumination :fraction (/ (+ 1 (cos inc)) 2)
                                   :phase (+ 0.5 (/ (* 0.5 inc ((if (< angle 0) -1 1))) pi))

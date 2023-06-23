@@ -1,10 +1,10 @@
-SunCalc
+suncalc
 =======
 
-SunCalc is a tiny BSD-licensed Lisp library for calculating sun position,
+suncalc is a tiny BSD-licensed Common Lisp library for calculating sun position,
 sunlight phases (times for sunrise, sunset, dusk, etc.),
 moon position and lunar phase for the given location and time.
-It is a port of the SunCalc nodeJS module,
+It is a port of the SunCalc Javascript library (https://github.com/mourner/suncalc),
 created by [Vladimir Agafonkin](http://agafonkin.com/en) ([@mourner](https://github.com/mourner)).
 
 ## Usage example (TO BE UPDATED)
@@ -68,7 +68,7 @@ The `*times*` variable contains all currently defined times.
 ### Sun position
 
 ```lisp
-(suncalc:get-position(time-and-date, latitude, longitude))
+(suncalc:get-position time-and-date latitude longitude)
 ```
 
 Returns an object with the following properties:

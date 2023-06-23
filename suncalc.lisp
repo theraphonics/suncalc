@@ -2,7 +2,8 @@
   (:use #:common-lisp)
   (:import-from :local-time
                 #:encode-universal-time
-                #:now))
+                #:now
+                #:timestamp-to-universal))
 
 (in-package :cl-suncalc)
 
@@ -234,4 +235,6 @@ but since they are available in the CLOS standard i have not.
 (defun hours-later (date h)
   `(local-time:timestamp-to-universal (+ ,date (/ (* ,h +day-ms+) 24))))
 
-(defun get-moon-times (date lat lng in-utc))
+(defun get-moon-times (date lat lng in-utc)
+
+)

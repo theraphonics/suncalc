@@ -1,6 +1,7 @@
 (in-package :asdf)
 
 (defsystem "suncalc"
+  :depends-on ("local-time")
   :description "Lisp implementation of Suncalc node module"
   :version "0.1"
   :author "Josh Armenta"

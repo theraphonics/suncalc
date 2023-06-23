@@ -1,11 +1,11 @@
-(defpackage :cl-suncalc
+(defpackage :suncalc
   (:use #:common-lisp)
   (:import-from :local-time
                 #:encode-universal-time
                 #:now
                 #:timestamp-to-universal))
 
-(in-package :cl-suncalc)
+(in-package :suncalc)
 
 #|
 The javascript implementation defined these:

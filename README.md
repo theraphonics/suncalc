@@ -4,33 +4,26 @@ SunCalc
 SunCalc is a tiny BSD-licensed Lisp library for calculating sun position,
 sunlight phases (times for sunrise, sunset, dusk, etc.),
 moon position and lunar phase for the given location and time.
-It is a port of the SunCalc node module,
+It is a port of the SunCalc nodeJS module,
 created by [Vladimir Agafonkin](http://agafonkin.com/en) ([@mourner](https://github.com/mourner)).
-
-Most calculations are based on the formulas given in the excellent Astronomy Answers articles
-about [position of the sun](http://aa.quae.nl/en/reken/zonpositie.html)
-and [the planets](http://aa.quae.nl/en/reken/hemelpositie.html).
-You can read about different twilight phases calculated by SunCalc
-in the [Twilight article on Wikipedia](http://en.wikipedia.org/wiki/Twilight).
-
 
 ## Usage example (TO BE UPDATED)
 
 ```lisp
 // get today's sunlight times for London
-(setq times suncalc:get-times date 51.5 -0.1)
+(setq times (suncalc:get-times get-universal-time 51.5 -0.1))
 
-~~// format sunrise time from the Date object
+// format sunrise time from the Date object
 var sunriseStr = times.sunrise.getHours() + ':' + times.sunrise.getMinutes();
 
 // get position of the sun (azimuth and altitude) at today's sunrise
 var sunrisePos = SunCalc.getPosition(times.sunrise, 51.5, -0.1);
 
 // get sunrise azimuth in degrees
-var sunriseAzimuth = sunrisePos.azimuth * 180 / Math.PI;~~
+var sunriseAzimuth = sunrisePos.azimuth * 180 / Math.PI;
 ```
 
-SunCalc is available on Ultralisp:
+~~SunCalc is available on Ultralisp:~~ (TO BE DONE AFTER TESTING)
 
 ```lisp
 (ql:quickload :suncalc)
@@ -67,15 +60,15 @@ Returns an object with the following properties (each is a `Date` object):
 SunCalc.addTime(/*Number*/ angleInDegrees, /*String*/ morningName, /*String*/ eveningName)
 ```
 
-Adds a custom time when the sun reaches the given angle to results returned by `SunCalc.getTimes`.
+Adds a custom time when the sun reaches the given angle to results returned by `suncalc:get-times`.
 
-`SunCalc.times` variable contains all currently defined times.
+The `*times*` variable contains all currently defined times.
 
 
 ### Sun position
 
-```javascript
-get-position(time-and-date, latitude, longitude)
+```lisp
+(suncalc:get-position(time-and-date, latitude, longitude))
 ```
 
 Returns an object with the following properties:
@@ -132,17 +125,17 @@ The zenith angle can be used to draw the moon shape from the observers perspecti
 ### Moon rise and set times
 
 ```lisp
-(suncalc:get-moon-times date latitude longitude[ inUTC])
+(suncalc:get-moon-times date latitude longitude (&optional in-utc))
 ```
 
 Returns an object with the following properties:
 
  * `rise`: moonrise time as `Date`
  * `set`: moonset time as `Date`
- * `always-up`: `true` if the moon never rises/sets and is always _above_ the horizon during the day
- * `always-down`: `true` if the moon is always _below_ the horizon
+ * `always-up`: `T` if the moon never rises/sets and is always _above_ the horizon during the day
+ * `always-down`: `T` if the moon is always _below_ the horizon
 
-By default, it will search for moon rise and set during local user's day (frou 0 to 24 hours).
-If `in-utc` is set to true, it will instead search the specified date from 0 to 24 UTC hours.
+By default, it will search for moon rise and set during local user's day (from 0 to 24 hours).
+If `in-utc` is set to `T`, it will instead search the specified date from 0 to 24 UTC hours.
 
 ## Changelog
